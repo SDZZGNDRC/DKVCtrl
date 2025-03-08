@@ -174,18 +174,18 @@ const handleNodeClick = async (nodeIndex) => {
 }
 
 const refreshAllNodes = async () => {
-  for (let i = 0; i < systemStatus.nodes.length; i++) {
-    try {
-      await systemStatus.fetchNodeStatus(i)
-    } catch (error) {
-      console.error(`Failed to fetch status for node ${i + 1}:`, error)
-    }
+  try {
+    await systemStatus.fetchAllNodesStatus()
+    nextTick(() => {
+      layoutNodesInCircle()
+      drawConnections()
+    })
+  } catch (error) {
+    console.error('Failed to refresh nodes:', error)
   }
-  nextTick(() => {
-    layoutNodesInCircle()
-    drawConnections()
-  })
 }
+
+const autoRefreshInterval = ref(null)
 
 const formatTimestamp = (timestamp) => {
   return new Date(timestamp * 1000).toLocaleString()
@@ -274,10 +274,14 @@ watch(
 
 onMounted(() => {
   refreshAllNodes()
+  autoRefreshInterval.value = setInterval(refreshAllNodes, 5000)
   window.addEventListener('resize', handleResize)
 })
 
 onUnmounted(() => {
+  if (autoRefreshInterval.value) {
+    clearInterval(autoRefreshInterval.value)
+  }
   window.removeEventListener('resize', handleResize)
 })
 </script>
