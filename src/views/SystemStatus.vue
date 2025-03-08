@@ -28,8 +28,11 @@
               }
             "
           >
-            <span>Node {{ node.id }}</span>
-            <div class="node-ip">{{ node.ip }}{{ node.port }}</div>
+            <span>节点 {{ node.id }}</span>
+            <div class="node-ip">
+              <div>IP: {{ node.ip }}</div>
+              <div>端口: {{ node.port }}</div>
+            </div>
             <div class="node-status">{{ capitalizeFirstLetter(node.status) }}</div>
           </div>
         </div>
@@ -102,6 +105,40 @@ const topologyRef = ref(null)
 const connectionsRef = ref(null)
 const nodeRefs = []
 
+// 新增圆形布局方法
+const layoutNodesInCircle = () => {
+  const container = topologyRef.value
+  if (!container) return
+
+  const nodes = nodeRefs.filter(ref => ref)
+  const numNodes = nodes.length
+  if (numNodes === 0) return
+
+  const containerRect = container.getBoundingClientRect()
+  const padding = 20
+  const containerWidth = containerRect.width - padding * 2
+  const containerHeight = containerRect.height - padding * 2
+  const centerX = containerWidth / 2 + padding
+  const centerY = containerHeight / 2 + padding
+  let radius = Math.min(containerWidth, containerHeight) / 2 * 0.8
+
+  if (numNodes === 1) {
+    radius = 0
+  }
+
+  nodes.forEach((nodeEl, index) => {
+    const angle = (2 * Math.PI * index) / numNodes - Math.PI / 2
+    const x = centerX + radius * Math.cos(angle)
+    const y = centerY + radius * Math.sin(angle)
+    const nodeWidth = nodeEl.offsetWidth
+    const nodeHeight = nodeEl.offsetHeight
+
+    nodeEl.style.position = 'absolute'
+    nodeEl.style.left = `${x - nodeWidth / 2}px`
+    nodeEl.style.top = `${y - nodeHeight / 2}px`
+  })
+}
+
 const selectedNodeDetails = computed(() => {
   if (systemStatus.selectedNode !== null) {
     return systemStatus.nodes[systemStatus.selectedNode].details
@@ -145,6 +182,7 @@ const refreshAllNodes = async () => {
     }
   }
   nextTick(() => {
+    layoutNodesInCircle()
     drawConnections()
   })
 }
@@ -218,26 +256,29 @@ const drawLine = (rect1, rect2, isDisconnected) => {
   svg.appendChild(line)
 }
 
+const handleResize = () => {
+  layoutNodesInCircle()
+  drawConnections()
+}
+
 watch(
   () => systemStatus.nodes,
   () => {
     nextTick(() => {
+      layoutNodesInCircle()
       drawConnections()
     })
   },
-  { deep: true },
+  { deep: true }
 )
 
 onMounted(() => {
   refreshAllNodes()
-  window.addEventListener('resize', drawConnections)
-  nextTick(() => {
-    drawConnections()
-  })
+  window.addEventListener('resize', handleResize)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', drawConnections)
+  window.removeEventListener('resize', handleResize)
 })
 </script>
 
@@ -262,10 +303,6 @@ onUnmounted(() => {
   background-color: #f5f7fa;
   border-radius: 4px;
   margin-bottom: 20px;
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  flex-wrap: wrap;
   padding: 20px;
 }
 
@@ -280,10 +317,9 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.3s;
   color: white;
-  margin: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   text-align: center;
-  position: relative;
+  position: absolute;
   z-index: 2;
 }
 
